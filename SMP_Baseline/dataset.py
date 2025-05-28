@@ -3,11 +3,10 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 from torch.utils.data import Dataset
-import torchvision.transforms as transforms
 
-def rle2mask(rle, shape=(256, 1600)):
+def rle2mask(rle, shape=(1600, 256)):
     if pd.isnull(rle):
-        return np.zeros(shape, dtype=np.uint8)
+        return np.zeros(shape, dtype=np.uint8).T
     rle = list(map(int, rle.strip().split()))
     starts, lengths = rle[0::2], rle[1::2]
     starts = np.array(starts) - 1
@@ -15,7 +14,7 @@ def rle2mask(rle, shape=(256, 1600)):
     mask = np.zeros(shape[0]*shape[1], dtype=np.uint8)
     for s, e in zip(starts, ends):
         mask[s:e] = 1
-    return mask.reshape(shape)
+    return mask.reshape(shape).T
 
 class SteelDataset(Dataset):
     def __init__(self, df, image_dir, transform=None):
