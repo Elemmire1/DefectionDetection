@@ -8,6 +8,7 @@ from torchvision import transforms
 from tqdm import tqdm
 from model import get_smp_model
 import segmentation_models_pytorch as smp
+from scipy.ndimage import label
 
 def mask2rle(mask):
     """
@@ -21,6 +22,21 @@ def mask2rle(mask):
     lengths = ends - starts
     rle = ' '.join(str(s) + ' ' + str(l) for s, l in zip(starts, lengths))
     return rle
+
+threshold_total = [0, 600, 600, 900, 2000]
+threshold = 150
+def remove_threshold(mask, cls):
+    structure = np.ones((3, 3), dtype=np.int32)
+    labeled_mask, num_features = label(mask, structure=structure)
+    for i in range(1, num_features + 1):
+        if np.sum(labeled_mask == i) < threshold:
+            labeled_mask[labeled_mask == i] = 0
+    if np.sum(labeled_mask) < threshold_total[cls]:
+        labeled_mask = np.zeros_like(mask)
+    else:
+        labeled_mask[labeled_mask > 0] = 1
+    return labeled_mask
+
 
 def main():
     # 模型配置
@@ -51,7 +67,7 @@ def main():
     print(f"✅ 已加载模型: {model_path}")
 
     # 测试图像路径
-    test_dir = "../test_images"
+    test_dir = "../data/test_images"
     if not os.path.exists(test_dir):
         print(f"⚠️ 测试图像目录不存在: {test_dir}")
         return
@@ -91,6 +107,7 @@ def main():
                 # 对每个类别处理
                 for cls in range(4):
                     class_pred = pred_binary[cls]
+                    class_pred = remove_threshold(class_pred, cls)
                     if class_pred.sum() > 0:  # 如果有检测到缺陷
                         rle = mask2rle(class_pred)
                     else:

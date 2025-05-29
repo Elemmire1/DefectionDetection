@@ -4,10 +4,17 @@ import torch
 import numpy as np
 from PIL import Image
 import pandas as pd
-from torchvision import transforms
 from tqdm import tqdm
 from model import get_smp_model
 import segmentation_models_pytorch as smp
+from scipy.ndimage import label
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
+
+transform = A.Compose([
+    A.Normalize(),
+    ToTensorV2()
+])
 
 def mask2rle(mask):
     """
@@ -21,6 +28,20 @@ def mask2rle(mask):
     lengths = ends - starts
     rle = ' '.join(str(s) + ' ' + str(l) for s, l in zip(starts, lengths))
     return rle
+
+threshold_total = [0, 450, 550, 700, 2000]
+threshold = [0, 250, 300, 50, 50]
+def remove_threshold(mask, cls):
+    structure = np.ones((3, 3), dtype=np.int32)
+    labeled_mask, num_features = label(mask, structure=structure)
+    for i in range(1, num_features + 1):
+        if np.sum(labeled_mask == i) < threshold[cls]:
+            labeled_mask[labeled_mask == i] = 0
+    if np.sum(labeled_mask) < threshold_total[cls]:
+        labeled_mask = np.zeros_like(mask)
+    else:
+        labeled_mask[labeled_mask > 0] = 1
+    return labeled_mask
 
 def main():
     results = []
@@ -70,6 +91,8 @@ def main():
                 ].values
                 if len(prob) and prob[0] > 0.5:
                     test_imgs.append(name)
+                else:
+                    results.append([f"{name}_{cls}", ""])
 
         # test_imgs = sorted([f for f in os.listdir(test_dir) if f.endswith('.jpg')])
 
@@ -79,11 +102,6 @@ def main():
 
         print(f"找到 {len(test_imgs)} 张测试图像")
 
-        # 图像预处理
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-        ])
-
         # 准备输出 CSV 文件
         submission_path = "./submission.csv"
 
@@ -91,15 +109,18 @@ def main():
             for name in tqdm(test_imgs, desc="预测中"):
                 img_path = os.path.join(test_dir, name)
                 image = Image.open(img_path).convert("RGB")
-                image_tensor = transform(image).unsqueeze(0).to(device)
+                image = np.array(image)
+                aug = transform(image=image)
+                image_tensor = aug['image'].unsqueeze(0).to(device)
 
                 # 预测
                 pred = model(image_tensor).cpu().sigmoid()
 
                 # 阈值处理
                 pred_binary = (pred > 0.5).float().numpy().squeeze()
-
                 class_pred = pred_binary[0] if len(pred_binary.shape) > 2 else pred_binary
+
+                class_pred = remove_threshold(class_pred, cls)
                 if class_pred.sum() > 0:  # 如果有检测到缺陷
                     rle = mask2rle(class_pred)
                 else:
