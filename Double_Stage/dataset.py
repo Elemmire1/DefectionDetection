@@ -39,17 +39,18 @@ class SteelDataset(Dataset):
     def __getitem__(self, idx):
         name = self.image_names[idx]
         image = Image.open(os.path.join(self.image_dir, name)).convert("RGB")
-        mask = np.zeros((1, 256, 1600), dtype=np.float32)
+        image = np.array(image)
+        mask = np.zeros((256, 1600), dtype=np.float32)
         rle = self.df.loc[
             (self.df['ImageId'] == name) & (self.df['ClassId'] == self.cls),
             'EncodedPixels'
         ].values
 
-        mask[0] = rle2mask(rle[0] if len(rle) else None)
+        mask = rle2mask(rle[0] if len(rle) else None)
 
         if self.transform:
-            augmented = self.transform(image=np.array(image), mask=mask[0])  # mask[0] 是 (256, 1600)
+            augmented = self.transform(image=np.array(image), mask=mask)  # mask[0] 是 (256, 1600)
             image = augmented['image']
-            mask[0] = augmented['mask']
+            mask = augmented['mask'].unsqueeze(0).float()
 
         return image, mask

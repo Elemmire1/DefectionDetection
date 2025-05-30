@@ -15,8 +15,11 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 import numpy as np
 
 transform = A.Compose([
+    A.RandomCrop(width=1400, height=224),
     A.HorizontalFlip(p=0.5),
     A.VerticalFlip(p=0.5),
+    A.RandomBrightnessContrast(p=0.5),
+    # A.CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.5),
     A.Normalize(),
     ToTensorV2()
 ])
@@ -80,9 +83,9 @@ for cls in range(1,5):
     # 也可以使用组合损失函数
     bce_loss = smp.losses.SoftBCEWithLogitsLoss()
     focal_loss = smp.losses.FocalLoss(mode='binary', gamma=2.0, alpha=0.75)
-    # loss_fn = lambda pred, target: dice_loss(pred, target) + focal_loss(pred, target)
+    loss_fn = lambda pred, target: dice_loss(pred, target) + focal_loss(pred, target)
     # loss_fn = lambda pred, target: dice_loss(pred, target) + bce_loss(pred, target)
-    loss_fn = lambda pred, target: focal_loss(pred, target) + bce_loss(pred, target)
+    # loss_fn = lambda pred, target: focal_loss(pred, target) + bce_loss(pred, target)
 
     # 训练参数
     num_epochs = 50
@@ -182,7 +185,7 @@ for cls in range(1,5):
     plt.title('Loss per Epoch')
     plt.legend()
     plt.grid(True)
-    plt.show()
+    plt.savefig(f"class{cls}_loss.png")
 
-    print(f"✅ 训练完成! 最佳验证损失: {best_val_loss:.4f}")
+    print(f"✅ 类 {cls} 训练完成! 最佳验证损失: {best_val_loss:.4f}")
     print(f"模型保存在: pretrained/{cls}_{model_type}_{encoder_name}_best.pth")
