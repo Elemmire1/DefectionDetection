@@ -32,6 +32,6 @@ def load_model_resnet():
     model = [None] * 4
     for i in range(4):
         model[i] = ResNetBinary().cuda()
-        model[i].load_state_dict(torch.load("modelresnet" + str(i+1) + ".pth"))
+        model[i].load_state_dict(torch.load("modelresnet" + str(3+1) + ".pth"))
         model[i].eval()
     return model

@@ -12,7 +12,7 @@ import pandas as pd
 import torchvision.transforms as T
 from dataset import SteelDataset
 
-model = load_model_mix()
+model = load_model_resnet()
 
 test_dir = "./data/train_images"
 test_imgs = sorted(os.listdir(test_dir))

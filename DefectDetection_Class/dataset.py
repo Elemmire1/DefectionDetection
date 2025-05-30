@@ -24,16 +24,17 @@ def rle2mask(rle, shape=(256, 1600)):
         mask[s:e] = 1
     return mask.reshape(shape)
 
-class ClassDataset(Dataset):
-    def __init__(self, df, image_dir, transform=None):
+class SteelDataset(Dataset):
+    def __init__(self, df, image_dir, training_catagory, transform=None):
         self.df = df
         self.image_dir = image_dir
         self.transform = transform
+        self.training_catagory = training_catagory
         self.image_names = os.listdir(self.image_dir)
 
     def __len__(self):
         return len(self.image_names)
-
+    
     # def __getitem__(self, idx):
     #     name = self.image_names[idx]
     #     return self.__getmaskbyname__(name)
@@ -42,14 +43,14 @@ class ClassDataset(Dataset):
         name = self.image_names[idx]
         image, catagory = self.__getcatagorybyname__(name)
         return image, catagory[self.training_catagory - 1]
-
+    
     def __getmaskbyname__(self, name):
         image = Image.open(os.path.join(self.image_dir, name)).convert("RGB")
         if self.transform:
             image = self.transform(image)
 
         mask = np.zeros((4, 256, 1600), dtype=np.float32)
-
+        
         for cls in range(4):
             rle = self.df.loc[
                 (self.df['ImageId'] == name) & (self.df['ClassId'] == cls + 1),  # 注意 ClassId 是字符串  真的吗？
@@ -67,7 +68,7 @@ class ClassDataset(Dataset):
 
         for i in range(4):
             matching_defect = self.df.loc[
-                (self.df['ImageId'] == name) &
+                (self.df['ImageId'] == name) & 
                 (self.df['ClassId'] == i + 1),
                 'EncodedPixels'
             ]

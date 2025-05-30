@@ -9,7 +9,7 @@ from cnn import CNN
 from dataset import mask2rle
 from loadmodel import load_model_cnn, load_model_mix
 
-model = load_model_mix()
+model = load_model_resnet()
 
 test_dir = "./data/test_images"
 test_imgs = sorted(os.listdir(test_dir))

@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 from torchvision import transforms
 from tqdm import tqdm
-from Work.DefectionDetection.model import UNet
+from unet_model import UNet
 
 def mask2rle(img):
     pixels = img.flatten(order='F')
@@ -31,7 +31,7 @@ transform = transforms.Compose([
 # 打开 CSV 文件，准备写入
 with open("submission.csv", mode='w', newline='') as csvfile:
     writer = csv.writer(csvfile)
-    writer.writerow(["ImageId", "EncodedPixels", "ClassId"])
+    writer.writerow(["ImageId", "EncodedPixels", "ClassId"]) 
 
     # 预测并写入每张图像的结果
     with torch.no_grad():
@@ -39,7 +39,7 @@ with open("submission.csv", mode='w', newline='') as csvfile:
             img_path = os.path.join(test_dir, name)
             img = Image.open(img_path).convert("RGB")
             img = transform(img).unsqueeze(0).cuda()
-
+            
             # 得到预测 [4, H, W]
             pred = model(img)[0].cpu().numpy()
 
