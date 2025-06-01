@@ -49,7 +49,7 @@ class SteelDataset(Dataset):
         mask = rle2mask(rle[0] if len(rle) else None)
 
         if self.transform:
-            augmented = self.transform(image=np.array(image), mask=mask)  # mask[0] 是 (256, 1600)
+            augmented = self.transform(image=image, mask=mask)
             image = augmented['image']
             mask = augmented['mask'].unsqueeze(0).float()
 

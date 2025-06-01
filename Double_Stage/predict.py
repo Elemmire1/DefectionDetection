@@ -49,8 +49,10 @@ def main():
     for cls in range(1, 5):
         print(f"正在处理类别 {cls} 的预测...")
         # 模型配置
-        model_type = "unet"  # 与训练时使用的模型类型保持一致
-        encoder_name = "resnet34"  # 与训练时使用的编码器保持一致
+        model_type1 = "unet"  # 与训练时使用的模型类型保持一致
+        encoder_name1 = "efficientnet-b3"  # 与训练时使用的编码器保持一致
+        model_type2 = "deeplabv3"  # 与训练时使用的模型类型保持一致
+        encoder_name2 = "efficientnet-b3"  # 与训练时使用的编码器保持一致
         classes = 1  # 钢铁缺陷的类别数
 
         # 设备配置
@@ -58,22 +60,34 @@ def main():
         print(f"使用设备: {device}")
 
         # 加载模型
-        model = get_smp_model(model_type, encoder_name, classes).to(device)
-        if model_type == "unet++":
-            model_path = f"pretrained/{cls}_unet_{encoder_name}_best.pth"
+        model1 = get_smp_model(model_type1, encoder_name1, classes).to(device)
+        if model_type1 == "unet++":
+            model_path1 = f"pretrained/{cls}_unet++_{encoder_name1}_best.pth"
         else:
-            model_path = f"pretrained/{cls}_{model_type}_{encoder_name}_best.pth"
+            model_path1 = f"pretrained/{cls}_{model_type1}_{encoder_name1}_best.pth"
+        model2 = get_smp_model(model_type2, encoder_name2, classes).to(device)
+        if model_type2 == "unet++":
+            model_path2 = f"pretrained/{cls}_unet++_{encoder_name2}_best.pth"
+        else:
+            model_path2 = f"pretrained/{cls}_{model_type2}_{encoder_name2}_best.pth"
 
         # 检查模型是否存在
-        if not os.path.exists(model_path):
-            print(f"⚠️ 模型文件不存在: {model_path}")
+        if not os.path.exists(model_path1):
+            print(f"⚠️ 模型文件不存在: {model_path1}")
+            print("请先运行 train_smp.py 进行模型训练，或检查模型路径是否正确。")
+            return
+        if not os.path.exists(model_path2):
+            print(f"⚠️ 模型文件不存在: {model_path2}")
             print("请先运行 train_smp.py 进行模型训练，或检查模型路径是否正确。")
             return
 
         # 加载模型权重
-        model.load_state_dict(torch.load(model_path))
-        model.eval()
-        print(f"✅ 已加载模型: {model_path}")
+        model1.load_state_dict(torch.load(model_path1))
+        model1.eval()
+        print(f"✅ 已加载模型: {model_path1}")
+        model2.load_state_dict(torch.load(model_path2))
+        model2.eval()
+        print(f"✅ 已加载模型: {model_path2}")
 
         # 测试图像路径
         test_dir = "../data/test_images"
@@ -114,7 +128,9 @@ def main():
                 image_tensor = aug['image'].unsqueeze(0).to(device)
 
                 # 预测
-                pred = model(image_tensor).cpu().sigmoid()
+                pred1 = model1(image_tensor).cpu().sigmoid()
+                pred2 = model2(image_tensor).cpu().sigmoid()
+                pred = (pred1 + pred2) / 2
 
                 # 阈值处理
                 pred_binary = (pred > 0.5).float().numpy().squeeze()

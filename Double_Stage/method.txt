@@ -1,3 +1,0 @@
-focal_loss(alpha=0.75) + bce_loss 比 dice_loss 更好
-
-efficientnet-b3 的效果好
