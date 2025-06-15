@@ -14,10 +14,16 @@ from albumentations.pytorch import ToTensorV2
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import numpy as np
 
+alpha = 0.3
+Parameters = f"loss_{alpha}_dataenhancement_no_threshold_no"
+Print = True
+Visualize = False
+
+print(f"Parameters: {Parameters}")
+
 transform = A.Compose([
-    A.RandomCrop(width=1400, height=224, p=1.0),
-    A.HorizontalFlip(p=0.5),
-    A.VerticalFlip(p=0.5),
+    # A.HorizontalFlip(p=0.5),
+    # A.VerticalFlip(p=0.5),
     A.Normalize(),
     ToTensorV2()
 ])
@@ -40,7 +46,11 @@ def compute_dice(pred, target, eps=1e-6):
     intersection = (pred & target).float().sum()
     return (2. * intersection + eps) / (pred.float().sum() + target.float().sum() + eps)
 
-for cls in range(1,5):
+dice_scores = [[] for _ in range(5)]  # 用于存储每个类别的 Dice 分数
+train_losses = [[] for _ in range(5)]  # 用于存储每个类别的训练损失
+val_losses = [[] for _ in range(5)]  # 用于存储每个类别的验证损失
+
+for cls in range(1, 5):
     dataset = SteelDataset("../data/train_images",
                            "../data/train.csv", cls, transform=transform)
 
@@ -75,7 +85,7 @@ for cls in range(1,5):
     # 也可以使用组合损失函数
     bce_loss = smp.losses.SoftBCEWithLogitsLoss()
     focal_loss = smp.losses.FocalLoss(mode='binary', gamma=2.0, alpha=0.75)
-    loss_fn = lambda pred, target: 0.3 * bce_loss(pred, target) + 0.7 * dice_loss(pred, target)
+    loss_fn = lambda pred, target: alpha * bce_loss(pred, target) + (1 - alpha) * dice_loss(pred, target)
     # loss_fn = lambda pred, target: dice_loss(pred, target) + focal_loss(pred, target)
 
     # 训练参数
@@ -85,12 +95,9 @@ for cls in range(1,5):
     best_val_loss = float('inf')
 
     # 创建保存检查点的文件夹
-    os.makedirs("pretrained", exist_ok=True)
+    os.makedirs("models", exist_ok=True)
 
     # 训练循环
-    train_losses = []
-    val_losses = []
-    dice_scores = []
     for epoch in range(num_epochs):
         # 训练阶段
         model.train()
@@ -116,7 +123,7 @@ for cls in range(1,5):
             train_bar.set_postfix(loss=f"{loss.item():.4f}", learning_rate=f"{optimizer.param_groups[0]['lr']:.6f}")
 
         avg_train_loss = train_loss / len(train_loader)
-        train_losses.append(avg_train_loss)
+        train_losses[cls].append(avg_train_loss)
 
         # 验证阶段
         model.eval()
@@ -130,7 +137,7 @@ for cls in range(1,5):
                 loss = loss_fn(outputs, masks)
                 val_loss += loss.item()
                 dice_score += compute_dice(outputs, masks)
-                if First == True:
+                if Visualize and First:
                     # 假设 mask 是一个 numpy 数组，shape: (H, W)，值为 0 或 1
                     plt.imshow(outputs[0][0].cpu().sigmoid().numpy() > 0.5, cmap='gray')
                     plt.title("Binary Mask")
@@ -144,8 +151,8 @@ for cls in range(1,5):
 
         avg_val_loss = val_loss / len(val_loader)
         avg_dice_score = (dice_score / len(val_loader)).cpu().numpy()
-        val_losses.append(avg_val_loss)
-        dice_scores.append(avg_dice_score)
+        val_losses[cls].append(avg_val_loss)
+        dice_scores[cls].append(avg_dice_score)
 
         # 打印训练和验证损失
         print(f"Epoch {epoch+1}/{num_epochs} - Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}, Avg Dice Score: {avg_dice_score:.4f}")
@@ -156,43 +163,39 @@ for cls in range(1,5):
         # 保存最佳模型
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
-            torch.save(model.state_dict(), f"pretrained/{cls}_{model_type}_{encoder_name}_best.pth")
+            torch.save(model.state_dict(), f"models/{model_type}_{encoder_name}_{Parameters}_class_{cls}.pth.pth")
             print(f"✅ 保存最佳模型，验证损失: {best_val_loss:.4f}")
             early_stop_count = 0
         else:
             early_stop_count += 1
 
-        # 保存最新的检查点
-        torch.save({
-            'epoch': epoch,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'train_loss': avg_train_loss,
-            'val_loss': avg_val_loss,
-        }, f"pretrained/{cls}_{model_type}_{encoder_name}_latest.pth")
-
         if early_stop_count >= early_stop_patience:
             print(f"早停触发，验证损失在 {early_stop_patience} 个周期内没有改善。")
             break
 
+    print(f"✅ 类 {cls} 训练完成! 最佳验证损失: {best_val_loss:.4f}")
+    print(f"模型保存在: models/{model_type}_{encoder_name}_{Parameters}_class_{cls}.pth")
+
+if Print:
+    os.makedirs("images", exist_ok=True)
+
     plt.figure(figsize=(12, 5))
-    plt.plot(train_losses, label='Train Loss')
-    plt.plot(val_losses, label='Val Loss')
+    for cls in range(1, 5):
+        plt.plot(train_losses[cls], label=f'Class {cls} Train Loss')
+        plt.plot(val_losses[cls], label=f'Class {cls} Val Loss')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.title('Loss per Epoch')
     plt.legend()
     plt.grid(True)
-    plt.savefig(f"{cls}_{model_type}_{encoder_name}_loss.png")
+    plt.savefig(f"images/{model_type}_{encoder_name}_{Parameters}_loss.png")
 
     plt.figure(figsize=(12, 5))
-    plt.plot(dice_scores, label='Dice Score')
+    for cls in range(1, 5):
+        plt.plot(dice_scores[cls], label=f'Class {cls} Dice Score')
     plt.xlabel('Epoch')
     plt.ylabel('Dice Score')
     plt.title('Dice Score per Epoch')
     plt.legend()
     plt.grid(True)
-    plt.savefig(f"{cls}_{model_type}_{encoder_name}_dice_score.png")
-
-    print(f"✅ 类 {cls} 训练完成! 最佳验证损失: {best_val_loss:.4f}")
-    print(f"模型保存在: pretrained/{cls}_{model_type}_{encoder_name}_best.pth")
+    plt.savefig(f"images/{model_type}_{encoder_name}_{Parameters}_dice_score.png")
