@@ -15,7 +15,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 import numpy as np
 
 alpha = 0.3
-Parameters = f"loss_{alpha}_dataenhancement_no_threshold_no"
+Parameters = f"loss_{alpha}_dataenhancement_no"
 Print = True
 Visualize = False
 
