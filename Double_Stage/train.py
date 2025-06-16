@@ -14,7 +14,7 @@ from albumentations.pytorch import ToTensorV2
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import numpy as np
 
-alpha = 0.3
+alpha = 0.9
 Parameters = f"loss_{alpha}_dataenhancement_no"
 Print = True
 Visualize = False
@@ -163,7 +163,7 @@ for cls in range(1, 5):
         # 保存最佳模型
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
-            torch.save(model.state_dict(), f"models/{model_type}_{encoder_name}_{Parameters}_class_{cls}.pth.pth")
+            torch.save(model.state_dict(), f"models/{model_type}_{encoder_name}_{Parameters}_class_{cls}.pth")
             print(f"✅ 保存最佳模型，验证损失: {best_val_loss:.4f}")
             early_stop_count = 0
         else:
