@@ -14,16 +14,16 @@ from albumentations.pytorch import ToTensorV2
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import numpy as np
 
-alpha = 0.9
-Parameters = f"loss_{alpha}_dataenhancement_no"
+alpha = 0.5
+Parameters = f"loss_{alpha}_dataenhancement_yes"
 Print = True
 Visualize = False
 
 print(f"Parameters: {Parameters}")
 
 transform = A.Compose([
-    # A.HorizontalFlip(p=0.5),
-    # A.VerticalFlip(p=0.5),
+    A.HorizontalFlip(p=0.5),
+    A.VerticalFlip(p=0.5),
     A.Normalize(),
     ToTensorV2()
 ])
@@ -66,7 +66,7 @@ for cls in range(1, 5):
     print(f"使用设备: {device}")
 
     # 选择模型类型和编码器
-    model_type = "unet"  # 可选: 'unet', 'fpn', 'pspnet', 'deeplabv3', 'deeplabv3plus'
+    model_type = "deeplabv3"  # 可选: 'unet', 'fpn', 'pspnet', 'deeplabv3', 'deeplabv3plus'
     encoder_name = "efficientnet-b3"  # 可选: 'resnet34', 'efficientnet-b0', 'mobilenet_v2' 等
     classes = 1  # 一种钢铁缺陷类别（是/不是）
 
